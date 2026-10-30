@@ -9,7 +9,7 @@ using namespace std;
 
 #define WINWIDTH 600
 #define WINHEIGHT 400
-#define NUM_OBJECTS 4
+#define NUM_OBJECTS 5
 #define MAX_RT_LEVEL 50
 #define NUM_SCENE 2
 
@@ -30,6 +30,9 @@ public:
     double diffusetReflection[3];
     double specularReflection[3];
     double speN = 300;
+    double transparency = 0;      // fraction of light passing through, 0 = opaque
+    double refractiveIndex = 1;
+    double shellThickness = 0;    // > 0 makes a transparent object a hollow shell, 0 = solid
 };
 
 class Sphere : public RtObject {
@@ -46,6 +49,8 @@ public:
         center_ = c;
         r_ = r;
     };
+    Vector3 center() { return center_; };
+    double radius() { return r_; };
     double intersectWithRay(Ray, Vector3& pos, Vector3& normal);
 };
 
@@ -91,6 +96,83 @@ double Sphere::intersectWithRay(Ray r, Vector3& intersection, Vector3& normal) {
     return t;
 }
 
+// Snell's law: bends unit vector I through a surface with unit normal N facing against I, where eta = n1 / n2
+// returns false on total internal reflection
+bool refract(Vector3 I, Vector3 N, double eta, Vector3& T) {
+    double cosi = -dot_prod(N, I);
+    double k = 1 - eta * eta * (1 - cosi * cosi);
+    if (k < 0) return false;
+
+    T = I * eta + N * (eta * cosi - sqrt(k));
+    T.normalize();
+    return true;
+}
+
+Vector3 reflect(Vector3 I, Vector3 N) {
+    return I - N * (2 * dot_prod(I, N));
+}
+
+// share of light reflected off glass, rising towards 1 at grazing angles (Schlick's approximation of Fresnel)
+double fresnel(Vector3 I, Vector3 N, double n) {
+    double r0 = (n - 1) / (n + 1);
+    r0 *= r0;
+    double cosi = fabs(dot_prod(I, N));
+    return r0 + (1 - r0) * pow(1 - cosi, 5);
+}
+
+// follows a ray that has just refracted into the transparent sphere obj at p with direction d,
+// through the glass (and the air cavity if it is a hollow shell), until it leaves the outer surface
+// returns false if it is still trapped by total internal reflection after the bounce limit
+bool passThrough(RtObject* obj, Vector3 p, Vector3 d, Ray& outRay) {
+    double n = obj->refractiveIndex;
+    bool hollow = obj->shellThickness > 0;
+    Sphere cavity;
+    if (hollow)
+        cavity.set(((Sphere*)obj)->center(), ((Sphere*)obj)->radius() - obj->shellThickness);
+
+    bool inCavity = false;
+    Vector3 hit, hitNormal, cavityHit, cavityNormal, newDir;
+    Ray seg;
+
+    for (int bounce = 0; bounce < 20; bounce++) {
+        seg.start = p + d * 1e-4; // step off the surface so the next surface is the hit found
+        seg.dir = d;
+
+        if (inCavity) {
+            // across the air inside, back into the glass on the far side (air to glass always refracts)
+            if (cavity.intersectWithRay(seg, hit, hitNormal) <= 0) return false;
+            refract(d, -hitNormal, 1 / n, newDir);
+            p = hit;
+            d = newDir;
+            inCavity = false;
+            continue;
+        }
+
+        // in the glass, the ray reaches either the cavity or the outer surface first
+        double tOuter = obj->intersectWithRay(seg, hit, hitNormal);
+        double tCavity = hollow ? cavity.intersectWithRay(seg, cavityHit, cavityNormal) : -1;
+
+        if (tCavity > 0 && (tOuter <= 0 || tCavity < tOuter)) {
+            p = cavityHit;
+            if (refract(d, cavityNormal, n, newDir)) {
+                d = newDir;
+                inCavity = true;
+            } else
+                d = reflect(d, cavityNormal);
+        } else if (tOuter > 0) {
+            p = hit;
+            if (refract(d, -hitNormal, n, newDir)) {
+                outRay.start = hit;
+                outRay.dir = newDir;
+                return true;
+            }
+            d = reflect(d, hitNormal);
+        } else
+            return false;
+    }
+    return false;
+}
+
 void rayTrace(Ray ray, double& r, double& g, double& b, int fromObj = -1, int level = 0) {
     int goBackGround = 1, i = 0;
 
@@ -123,6 +205,7 @@ void rayTrace(Ray ray, double& r, double& g, double& b, int fromObj = -1, int le
         RtObject* obj = objList[hitObj];
 
         lightV = lightPos - intersection;
+        double lightDist = lightV.length();
         lightV.normalize();
         viewV = ray.start - intersection;
         viewV.normalize();
@@ -132,25 +215,48 @@ void rayTrace(Ray ray, double& r, double& g, double& b, int fromObj = -1, int le
         lightReflectionV.normalize();
         double RdotV = dot_prod(lightReflectionV, viewV);
 
-        double diffuseFactor = NdotL > 0 ? NdotL : 0;
-        double specularFactor = (NdotL > 0 && RdotV > 0) ? pow(RdotV, obj->speN) : 0;
+        // shadows
+        double lightVisibility = 1;
+        Ray shadowRay;
+        shadowRay.start = intersection;
+        shadowRay.dir = lightV;
+        for (int j = 0; j < NUM_OBJECTS && lightVisibility > 0; j++) {
+            if (j == hitObj)
+                continue;
+            if ((t = objList[j]->intersectWithRay(shadowRay, currIntersection, currNormal)) > 0 && t < lightDist)
+                lightVisibility *= objList[j]->transparency;
+        }
 
-        double color[3];
-        for (int c = 0; c < 3; c++)
-            color[c] = ambientLight[c] * obj->ambientReflection[c] + diffusetLight[c] * obj->diffusetReflection[c] * diffuseFactor +
-                       specularLight[c] * obj->specularReflection[c] * specularFactor;
+        double diffuseFactor = NdotL > 0 ? lightVisibility * NdotL : 0;
+        double specularFactor = (NdotL > 0 && RdotV > 0) ? lightVisibility * pow(RdotV, obj->speN) : 0;
 
-        bool isReflective = obj->specularReflection[0] > 0 || obj->specularReflection[1] > 0 || obj->specularReflection[2] > 0;
+        // transparency
+        double kt = obj->transparency;
+        double transmitted[3] = {bgColor[0], bgColor[1], bgColor[2]};
+        Vector3 insideDir;
+        if (level < MAX_RT_LEVEL && kt > 0 && refract(ray.dir, normal, 1 / obj->refractiveIndex, insideDir) &&
+            passThrough(obj, intersection, insideDir, newRay))
+            rayTrace(newRay, transmitted[0], transmitted[1], transmitted[2], hitObj, level + 1);
+
+        double reflected[3] = {0, 0, 0};
+        bool isReflective = kt > 0 || obj->specularReflection[0] > 0 || obj->specularReflection[1] > 0 || obj->specularReflection[2] > 0;
         if (level < MAX_RT_LEVEL && isReflective) {
             rayReflectionV = ray.dir - normal * (2 * dot_prod(ray.dir, normal));
             rayReflectionV.normalize();
             newRay.start = intersection;
             newRay.dir = rayReflectionV;
 
-            double reflected[3];
             rayTrace(newRay, reflected[0], reflected[1], reflected[2], hitObj, level + 1);
+        }
 
-            for (int c = 0; c < 3; c++) color[c] += obj->specularReflection[c] * reflected[c];
+        // the transparent part replaces the surface colour, and glass reflects by Fresnel instead of Ks
+        double fr = kt > 0 ? fresnel(ray.dir, normal, obj->refractiveIndex) : 0;
+        double color[3];
+        for (int c = 0; c < 3; c++) {
+            double reflectWeight = kt > 0 ? fr : obj->specularReflection[c];
+            color[c] = (1 - kt) * (ambientLight[c] * obj->ambientReflection[c] + diffusetLight[c] * obj->diffusetReflection[c] * diffuseFactor) +
+                       kt * (1 - fr) * transmitted[c] + reflectWeight * reflected[c] +
+                       specularLight[c] * obj->specularReflection[c] * specularFactor;
         }
 
         r = color[0];
@@ -272,6 +378,22 @@ void setScene(int i = 0) {
         objList[3]->specularReflection[1] = 0.6;
         objList[3]->specularReflection[2] = 0.6;
         objList[3]->speN = 650;
+
+        // clear glass bubble in front of the bottom two
+        ((Sphere*)objList[4])->set(Vector3(0, -20, -300), 40);
+        objList[4]->ambientReflection[0] = 0.05;
+        objList[4]->ambientReflection[1] = 0.05;
+        objList[4]->ambientReflection[2] = 0.05;
+        objList[4]->diffusetReflection[0] = 0.1;
+        objList[4]->diffusetReflection[1] = 0.1;
+        objList[4]->diffusetReflection[2] = 0.1;
+        objList[4]->specularReflection[0] = 0.2;
+        objList[4]->specularReflection[1] = 0.2;
+        objList[4]->specularReflection[2] = 0.2;
+        objList[4]->speN = 300;
+        objList[4]->transparency = 0.9;
+        objList[4]->refractiveIndex = 1.5;
+        objList[4]->shellThickness = 3;
     }
 
     if (i == 1) {
@@ -323,6 +445,22 @@ void setScene(int i = 0) {
         objList[3]->specularReflection[1] = 0.4;
         objList[3]->specularReflection[2] = 0.5;
         objList[3]->speN = 300;
+
+        // pink-tinted glass bubble above the floor, left of the cyan ball
+        ((Sphere*)objList[4])->set(Vector3(-90, -60, -120), 50);
+        objList[4]->ambientReflection[0] = 0.3;
+        objList[4]->ambientReflection[1] = 0.1;
+        objList[4]->ambientReflection[2] = 0.2;
+        objList[4]->diffusetReflection[0] = 0.6;
+        objList[4]->diffusetReflection[1] = 0.2;
+        objList[4]->diffusetReflection[2] = 0.4;
+        objList[4]->specularReflection[0] = 0.2;
+        objList[4]->specularReflection[1] = 0.2;
+        objList[4]->specularReflection[2] = 0.2;
+        objList[4]->speN = 300;
+        objList[4]->transparency = 0.75;
+        objList[4]->refractiveIndex = 1.5;
+        objList[4]->shellThickness = 4;
     }
 }
 
@@ -368,6 +506,7 @@ int main(int argc, char** argv) {
     objList[1] = new Sphere(Vector3(130, -80, -80), 100);
     objList[2] = new Sphere(Vector3(-130, -80, -80), 100);
     objList[3] = new Sphere(Vector3(130, 80, 120), 100);
+    objList[4] = new Sphere(Vector3(0, -20, -300), 40);
 
     setScene(0);
 
