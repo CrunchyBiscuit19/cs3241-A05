@@ -1,3 +1,6 @@
+// Steps 1 to 5 completed.
+// Shadows and transparency + refraction implemented.
+
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -96,8 +99,7 @@ double Sphere::intersectWithRay(Ray r, Vector3& intersection, Vector3& normal) {
     return t;
 }
 
-// Snell's law: bends unit vector I through a surface with unit normal N facing against I, where eta = n1 / n2
-// returns false on total internal reflection
+// Snell's law
 bool refract(Vector3 I, Vector3 N, double eta, Vector3& T) {
     double cosi = -dot_prod(N, I);
     double k = 1 - eta * eta * (1 - cosi * cosi);
@@ -112,7 +114,7 @@ Vector3 reflect(Vector3 I, Vector3 N) {
     return I - N * (2 * dot_prod(I, N));
 }
 
-// share of light reflected off glass, rising towards 1 at grazing angles (Schlick's approximation of Fresnel)
+// Schlick's approximation
 double fresnel(Vector3 I, Vector3 N, double n) {
     double r0 = (n - 1) / (n + 1);
     r0 *= r0;
@@ -120,9 +122,6 @@ double fresnel(Vector3 I, Vector3 N, double n) {
     return r0 + (1 - r0) * pow(1 - cosi, 5);
 }
 
-// follows a ray that has just refracted into the transparent sphere obj at p with direction d,
-// through the glass (and the air cavity if it is a hollow shell), until it leaves the outer surface
-// returns false if it is still trapped by total internal reflection after the bounce limit
 bool passThrough(RtObject* obj, Vector3 p, Vector3 d, Ray& outRay) {
     double n = obj->refractiveIndex;
     bool hollow = obj->shellThickness > 0;
@@ -135,11 +134,10 @@ bool passThrough(RtObject* obj, Vector3 p, Vector3 d, Ray& outRay) {
     Ray seg;
 
     for (int bounce = 0; bounce < 20; bounce++) {
-        seg.start = p + d * 1e-4; // step off the surface so the next surface is the hit found
+        seg.start = p + d * 1e-4; 
         seg.dir = d;
 
         if (inCavity) {
-            // across the air inside, back into the glass on the far side (air to glass always refracts)
             if (cavity.intersectWithRay(seg, hit, hitNormal) <= 0) return false;
             refract(d, -hitNormal, 1 / n, newDir);
             p = hit;
@@ -148,7 +146,6 @@ bool passThrough(RtObject* obj, Vector3 p, Vector3 d, Ray& outRay) {
             continue;
         }
 
-        // in the glass, the ray reaches either the cavity or the outer surface first
         double tOuter = obj->intersectWithRay(seg, hit, hitNormal);
         double tCavity = hollow ? cavity.intersectWithRay(seg, cavityHit, cavityNormal) : -1;
 
