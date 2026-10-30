@@ -33,9 +33,9 @@ public:
     double diffusetReflection[3];
     double specularReflection[3];
     double speN = 300;
-    double transparency = 0;      // fraction of light passing through, 0 = opaque
+    double transparency = 0;      
     double refractiveIndex = 1;
-    double shellThickness = 0;    // > 0 makes a transparent object a hollow shell, 0 = solid
+    double shellThickness = 0;
 };
 
 class Sphere : public RtObject {
