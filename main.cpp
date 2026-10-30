@@ -1,4 +1,3 @@
-// CS3241Lab5.cpp
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -16,7 +15,7 @@ using namespace std;
 
 float* pixelBuffer = new float[WINWIDTH * WINHEIGHT * 3];
 
-class Ray {  // a ray that start with "start" and going in the direction "dir"
+class Ray { 
 public:
     Vector3 start, dir;
 };
@@ -25,9 +24,8 @@ class RtObject {
 public:
     virtual double intersectWithRay(
         Ray, Vector3& pos, Vector3& normal
-    ) = 0;  // return a -ve if there is no intersection. Otherwise, return the smallest postive value of t
+    ) = 0; 
 
-    // Materials Properties
     double ambientReflection[3];
     double diffusetReflection[3];
     double specularReflection[3];
@@ -51,10 +49,9 @@ public:
     double intersectWithRay(Ray, Vector3& pos, Vector3& normal);
 };
 
-RtObject** objList;  // The list of all objects in the scene
+RtObject** objList; 
 
 // Global Variables
-// Camera Settings
 Vector3 cameraPos(0, 0, -500);
 
 // assume the the following two vectors are normalised
@@ -74,11 +71,8 @@ double bgColor[3] = {0.1, 0.1, 0.4};
 
 int sceneNo = 0;
 
-double Sphere::intersectWithRay(Ray r, Vector3& intersection, Vector3& normal)
-// return a -ve if there is no intersection. Otherwise, return the smallest postive value of t
-{
-    // Step 1
-    // solve |start + t*dir - center|^2 = r^2, i.e. a*t^2 + b*t + c = 0
+double Sphere::intersectWithRay(Ray r, Vector3& intersection, Vector3& normal) {
+    // |start + t*dir - center|^2 = r^2, i.e. a*t^2 + b*t + c = 0
     Vector3 oc = r.start - center_;
     double a = dot_prod(r.dir, r.dir);
     double b = 2 * dot_prod(r.dir, oc);
@@ -98,8 +92,6 @@ double Sphere::intersectWithRay(Ray r, Vector3& intersection, Vector3& normal)
 }
 
 void rayTrace(Ray ray, double& r, double& g, double& b, int fromObj = -1, int level = 0) {
-    // Step 4
-
     int goBackGround = 1, i = 0;
 
     Vector3 intersection, normal;
@@ -114,11 +106,11 @@ void rayTrace(Ray ray, double& r, double& g, double& b, int fromObj = -1, int le
     Vector3 currIntersection, currNormal;
 
     for (i = 0; i < NUM_OBJECTS; i++) {
-        if (i == fromObj)  // a ray never hits the object it rebounds from
+        if (i == fromObj)
             continue;
 
         if ((t = objList[i]->intersectWithRay(ray, currIntersection, currNormal)) > 0 && t < mint) {
-            // Step 2: keep only the closest object along the ray
+            // keep only the closest object along the ray
             mint = t;
             hitObj = i;
             intersection = currIntersection;
@@ -128,7 +120,6 @@ void rayTrace(Ray ray, double& r, double& g, double& b, int fromObj = -1, int le
     }
 
     if (!goBackGround) {
-        // Step 3: Phong Illumination Equation with a single point light (no attenuation)
         RtObject* obj = objList[hitObj];
 
         lightV = lightPos - intersection;
@@ -149,7 +140,6 @@ void rayTrace(Ray ray, double& r, double& g, double& b, int fromObj = -1, int le
             color[c] = ambientLight[c] * obj->ambientReflection[c] + diffusetLight[c] * obj->diffusetReflection[c] * diffuseFactor +
                        specularLight[c] * obj->specularReflection[c] * specularFactor;
 
-        // Step 4: add the colour seen along the reflected ray, weighted by the specular coefficient
         bool isReflective = obj->specularReflection[0] > 0 || obj->specularReflection[1] > 0 || obj->specularReflection[2] > 0;
         if (level < MAX_RT_LEVEL && isReflective) {
             rayReflectionV = ray.dir - normal * (2 * dot_prod(ray.dir, normal));
@@ -187,11 +177,11 @@ void renderScene() {
     double r, g, b;
 
     cout << "Rendering Scene " << sceneNo << " with resolution " << WINWIDTH << "x" << WINHEIGHT << "........... ";
-    __int64 time1 = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now().time_since_epoch()).count();  // marking the starting time
+    __int64 time1 = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now().time_since_epoch()).count();
 
     ray.start = cameraPos;
 
-    Vector3 vpCenter = cameraPos + lookAtDir * focalLen;  // viewplane center
+    Vector3 vpCenter = cameraPos + lookAtDir * focalLen;
     Vector3 startingPt = vpCenter + leftVector * (-WINWIDTH / 2.0) + upVector * (-WINHEIGHT / 2.0);
     Vector3 currPt;
 
@@ -204,7 +194,7 @@ void renderScene() {
             drawInPixelBuffer(x, y, r, g, b);
         }
 
-    __int64 time2 = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now().time_since_epoch()).count();  // marking the ending time
+    __int64 time2 = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now().time_since_epoch()).count();
 
     cout << "Done! \nRendering time = " << time2 - time1 << "ms" << endl << endl;
 }
@@ -285,8 +275,6 @@ void setScene(int i = 0) {
     }
 
     if (i == 1) {
-        // Step 5
-        // a small cyan ball in front of a dull yellow ball, a big green ball, all above a huge lavender "floor" ball
         ((Sphere*)objList[0])->set(Vector3(110, 20, -150), 35);
         ((Sphere*)objList[1])->set(Vector3(160, 40, 150), 100);
         ((Sphere*)objList[2])->set(Vector3(-120, 80, 200), 150);
@@ -376,7 +364,6 @@ int main(int argc, char** argv) {
 
     objList = new RtObject*[NUM_OBJECTS];
 
-    // create four spheres
     objList[0] = new Sphere(Vector3(-130, 80, 120), 100);
     objList[1] = new Sphere(Vector3(130, -80, -80), 100);
     objList[2] = new Sphere(Vector3(-130, -80, -80), 100);
