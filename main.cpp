@@ -28,7 +28,7 @@ public:
     ) = 0;  // return a -ve if there is no intersection. Otherwise, return the smallest postive value of t
 
     // Materials Properties
-    double ambiantReflection[3];
+    double ambientReflection[3];
     double diffusetReflection[3];
     double specularReflection[3];
     double speN = 300;
@@ -66,7 +66,7 @@ float focalLen = 500;
 // Light Settings
 
 Vector3 lightPos(900, 1000, -1500);
-double ambiantLight[3] = {0.4, 0.4, 0.4};
+double ambientLight[3] = {0.4, 0.4, 0.4};
 double diffusetLight[3] = {0.7, 0.7, 0.7};
 double specularLight[3] = {0.5, 0.5, 0.5};
 
@@ -146,7 +146,7 @@ void rayTrace(Ray ray, double& r, double& g, double& b, int fromObj = -1, int le
 
         double color[3];
         for (int c = 0; c < 3; c++)
-            color[c] = ambiantLight[c] * obj->ambiantReflection[c] + diffusetLight[c] * obj->diffusetReflection[c] * diffuseFactor +
+            color[c] = ambientLight[c] * obj->ambientReflection[c] + diffusetLight[c] * obj->diffusetReflection[c] * diffuseFactor +
                        specularLight[c] * obj->specularReflection[c] * specularFactor;
 
         // Step 4: add the colour seen along the reflected ray, weighted by the specular coefficient
@@ -239,9 +239,9 @@ void setScene(int i = 0) {
         ((Sphere*)objList[2])->set(Vector3(-130, -80, -80), 100);
         ((Sphere*)objList[3])->set(Vector3(130, 80, 120), 100);
 
-        objList[0]->ambiantReflection[0] = 0.1;
-        objList[0]->ambiantReflection[1] = 0.4;
-        objList[0]->ambiantReflection[2] = 0.4;
+        objList[0]->ambientReflection[0] = 0.1;
+        objList[0]->ambientReflection[1] = 0.4;
+        objList[0]->ambientReflection[2] = 0.4;
         objList[0]->diffusetReflection[0] = 0;
         objList[0]->diffusetReflection[1] = 1;
         objList[0]->diffusetReflection[2] = 1;
@@ -250,9 +250,9 @@ void setScene(int i = 0) {
         objList[0]->specularReflection[2] = 0.4;
         objList[0]->speN = 300;
 
-        objList[1]->ambiantReflection[0] = 0.6;
-        objList[1]->ambiantReflection[1] = 0.6;
-        objList[1]->ambiantReflection[2] = 0.2;
+        objList[1]->ambientReflection[0] = 0.6;
+        objList[1]->ambientReflection[1] = 0.6;
+        objList[1]->ambientReflection[2] = 0.2;
         objList[1]->diffusetReflection[0] = 1;
         objList[1]->diffusetReflection[1] = 1;
         objList[1]->diffusetReflection[2] = 0;
@@ -261,9 +261,9 @@ void setScene(int i = 0) {
         objList[1]->specularReflection[2] = 0.0;
         objList[1]->speN = 50;
 
-        objList[2]->ambiantReflection[0] = 0.1;
-        objList[2]->ambiantReflection[1] = 0.6;
-        objList[2]->ambiantReflection[2] = 0.1;
+        objList[2]->ambientReflection[0] = 0.1;
+        objList[2]->ambientReflection[1] = 0.6;
+        objList[2]->ambientReflection[2] = 0.1;
         objList[2]->diffusetReflection[0] = 0.1;
         objList[2]->diffusetReflection[1] = 1;
         objList[2]->diffusetReflection[2] = 0.1;
@@ -272,9 +272,9 @@ void setScene(int i = 0) {
         objList[2]->specularReflection[2] = 0.3;
         objList[2]->speN = 650;
 
-        objList[3]->ambiantReflection[0] = 0.3;
-        objList[3]->ambiantReflection[1] = 0.3;
-        objList[3]->ambiantReflection[2] = 0.3;
+        objList[3]->ambientReflection[0] = 0.3;
+        objList[3]->ambientReflection[1] = 0.3;
+        objList[3]->ambientReflection[2] = 0.3;
         objList[3]->diffusetReflection[0] = 0.7;
         objList[3]->diffusetReflection[1] = 0.7;
         objList[3]->diffusetReflection[2] = 0.7;
@@ -292,9 +292,9 @@ void setScene(int i = 0) {
         ((Sphere*)objList[2])->set(Vector3(-120, 80, 200), 150);
         ((Sphere*)objList[3])->set(Vector3(0, -1200, 300), 1050);
 
-        objList[0]->ambiantReflection[0] = 0.1;
-        objList[0]->ambiantReflection[1] = 0.4;
-        objList[0]->ambiantReflection[2] = 0.4;
+        objList[0]->ambientReflection[0] = 0.1;
+        objList[0]->ambientReflection[1] = 0.4;
+        objList[0]->ambientReflection[2] = 0.4;
         objList[0]->diffusetReflection[0] = 0;
         objList[0]->diffusetReflection[1] = 0.8;
         objList[0]->diffusetReflection[2] = 1;
@@ -303,9 +303,9 @@ void setScene(int i = 0) {
         objList[0]->specularReflection[2] = 0.5;
         objList[0]->speN = 400;
 
-        objList[1]->ambiantReflection[0] = 0.6;
-        objList[1]->ambiantReflection[1] = 0.6;
-        objList[1]->ambiantReflection[2] = 0.2;
+        objList[1]->ambientReflection[0] = 0.6;
+        objList[1]->ambientReflection[1] = 0.6;
+        objList[1]->ambientReflection[2] = 0.2;
         objList[1]->diffusetReflection[0] = 1;
         objList[1]->diffusetReflection[1] = 1;
         objList[1]->diffusetReflection[2] = 0;
@@ -314,9 +314,9 @@ void setScene(int i = 0) {
         objList[1]->specularReflection[2] = 0.0;
         objList[1]->speN = 50;
 
-        objList[2]->ambiantReflection[0] = 0.1;
-        objList[2]->ambiantReflection[1] = 0.6;
-        objList[2]->ambiantReflection[2] = 0.1;
+        objList[2]->ambientReflection[0] = 0.1;
+        objList[2]->ambientReflection[1] = 0.6;
+        objList[2]->ambientReflection[2] = 0.1;
         objList[2]->diffusetReflection[0] = 0.1;
         objList[2]->diffusetReflection[1] = 1;
         objList[2]->diffusetReflection[2] = 0.1;
@@ -325,9 +325,9 @@ void setScene(int i = 0) {
         objList[2]->specularReflection[2] = 0.3;
         objList[2]->speN = 650;
 
-        objList[3]->ambiantReflection[0] = 0.4;
-        objList[3]->ambiantReflection[1] = 0.4;
-        objList[3]->ambiantReflection[2] = 0.6;
+        objList[3]->ambientReflection[0] = 0.4;
+        objList[3]->ambientReflection[1] = 0.4;
+        objList[3]->ambientReflection[2] = 0.6;
         objList[3]->diffusetReflection[0] = 0.5;
         objList[3]->diffusetReflection[1] = 0.5;
         objList[3]->diffusetReflection[2] = 0.7;
